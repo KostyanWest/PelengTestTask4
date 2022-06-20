@@ -2,19 +2,98 @@
 
 #include "com_port_reader.hpp"
 
+#include <algorithm>
 #include <iostream>
 
 
 
 class AnemorumbometerReader
 {
+private:
+	class ReadBuffer
+	{
+	public:
+		ReadBuffer() = default;
+		ReadBuffer( const ReadBuffer& ) = delete;
+		ReadBuffer& operator= ( const ReadBuffer& ) = delete;
+
+		char* begin() noexcept { return beginPtr; }
+		char* end() noexcept { return endPtr; }
+
+		const char* cbegin() const noexcept { return beginPtr; }
+		const char* cend() const noexcept { return endPtr; }
+
+		size_t Size() const noexcept { return cend() - cbegin(); }
+		constexpr size_t MaxSize() const noexcept { return std::cend(buffer) - std::cbegin(buffer); }
+		size_t Offset() const noexcept { return cbegin() - std::cbegin( buffer ); }
+
+		bool IsEmpty() const noexcept { return cbegin() == cend(); }
+		bool IsFull() const noexcept { return cend() == std::end( buffer ); }
+
+		void Flush() noexcept { beginPtr = endPtr = std::begin( buffer ); }
+		bool Cut( const char* beginIter ) noexcept
+		{
+			if (beginIter >= begin() && beginIter <= end())
+			{
+				beginPtr = const_cast<char*>(beginIter);
+				return true;
+			}
+			else
+			{
+				return false;
+			}
+		}
+
+		void AlignBegin() noexcept
+		{
+			std::memmove( std::begin( buffer ), begin(), Size() );
+			endPtr = std::begin( buffer ) + Size();
+			beginPtr = std::begin( buffer );
+		}
+
+		template <typename WriteFunc>
+		size_t Write( WriteFunc writeFunc )
+		{
+			size_t bytesRead = writeFunc( std::begin( buffer ), MaxSize() );
+			beginPtr = std::begin( buffer );
+			endPtr = std::begin( buffer ) + bytesRead;
+			return bytesRead;
+		}
+
+		template <typename WriteFunc>
+		size_t Append( WriteFunc writeFunc )
+		{
+			size_t bytesRead = writeFunc( begin(), std::cend( buffer ) - cend() );
+			endPtr += bytesRead;
+			return bytesRead;
+		}
+
+		
+	private:
+		char buffer[6178]{};
+		char* beginPtr = std::begin( buffer );
+		char* endPtr = std::begin( buffer );
+	};
+
+	struct DataBuffer
+	{
+		int data[2056]{};
+		int direction{};
+		int packetNumber{};
+	};
+
 public:
+	class ReadError : public std::runtime_error
+	{
+		using std::runtime_error::runtime_error;
+	};
+
 	AnemorumbometerReader( ComPort& port ) noexcept : port( port ) {};
 
 	AnemorumbometerReader( const AnemorumbometerReader& ) = delete;
 	AnemorumbometerReader& operator= ( const AnemorumbometerReader& ) = delete;
 
-	void ReadSomeData( void (*callback)(int direction, int packetNumber, const int* begin, const int* end) )
+	void ReadSomeData( void (*callback)(int direction, int packetNumber, const int* begin, size_t count) )
 	{
 		if (!isReadingMessage)
 			LookForMessageStart();
@@ -24,119 +103,135 @@ public:
 			int dataRead = ReceiveMessage();
 			if (dataRead > 0)
 			{
-				callback( direction, packetNumber, data, data + dataRead );
+				callback( dataBuffer.direction, dataBuffer.packetNumber, dataBuffer.data, dataRead );
 			}
 		}
+	}
+
+	void Reset() noexcept
+	{
+		readBuffer.Flush();
+		isReadingMessage = false;
 	}
 
 protected:
 	void LookForMessageStart()
 	{
-		// if the buffer is empty
-		if (begin == end)
+		if (readBuffer.IsEmpty())
 		{
-			size_t bytesRead = port.Read( buffer, sizeof( buffer ) );
-			begin = buffer;
-			end = buffer + bytesRead;
+			std::cout << "Look: " << readBuffer.Write( [this]( char* buf, size_t size ) { return port.Read( buf, size ); } ) << std::endl;
+			/*for (const char ch : readBuffer)
+			{
+				std::cout << (unsigned int)(unsigned char)ch << ' ';
+			}
+			std::cout << std::endl;*/
 		}
 
-		// look for the message start character
-		std::cout << "Look: " << end - begin << std::endl;
-		while (begin != end)
+		const char* iter = std::find( readBuffer.cbegin(), readBuffer.cend(), 0x20 );
+		if (iter != readBuffer.end())
 		{
-			if (*begin++ == 0x20)
-			{
-				std::memmove( buffer, begin, end - begin );
-				end = buffer + (end - begin);
-				begin = buffer;
-				isReadingMessage = true;
-				return;
-			}
+			readBuffer.Cut( iter + 1 );
+			readBuffer.AlignBegin();
+			isReadingMessage = true;
 		}
-		isReadingMessage = false;
+		else
+		{
+			readBuffer.Flush();
+		}
 	}
 
 	int ReceiveMessage()
 	{
-		// if the buffer isn't full
-		if (end != buffer + sizeof( buffer ))
+		if (!readBuffer.IsFull())
 		{
-			size_t bytesRead = port.Read( end, (buffer + sizeof( buffer )) - end );
-			end += bytesRead;
+			readBuffer.Append( [this]( char* buf, size_t size ) { return port.Read( buf, size ); } );
 		}
 
-		while (begin != end)
+		while (!readBuffer.IsEmpty())
 		{
 			// if need to read the header
-			if (begin == buffer)
+			if (readBuffer.Offset() == 0)
 			{
 				// try read the header
-				if (end - buffer >= 6)
+				if (readBuffer.Size() >= 6)
 				{
-					char* ptr = buffer;
-					while (ptr != buffer + 6 && (*ptr++ & 0xF0) == 0x30);
-					if (ptr == buffer + 6)
-					{
+					const char* iter = readBuffer.cbegin();
+					if (iter[0] != 0x32)
+						throw ReadError( "Invalid second byte." );
 
-					}
-
-					int direction = (buffer[1] << 8) | buffer[0];
+					int direction = (iter[1] << 8) | iter[2];
 					switch (direction)
 					{
 					case 0x3133:
-						0;
+						dataBuffer.direction = 0;
 						break;
 					case 0x3234:
-						1;
+						dataBuffer.direction = 1;
 						break;
 					case 0x3331:
-						2;
+						dataBuffer.direction = 2;
 						break;
 					case 0x3432:
-						3;
+						dataBuffer.direction = 3;
 						break;
 					default:
-						break;
+						throw ReadError( "Invalid direction number." );
 					}
 
-					auto fgh = (long)buffer[0] << 8;
+					if (std::any_of( iter + 3, iter + 6, []( const char& ch ) noexcept { return (ch & 0xF0) != 0x30; } ))
+						throw ReadError( "Invalid packet number." );
 
-					// the check byte
-					buffer[0] == 0x32;
-					// read the header
-					std::cout << (unsigned int)(unsigned char)(*begin++) << '\n'
-						<< (unsigned int)(unsigned char)(*begin++) << (unsigned int)(unsigned char)(*begin++) << '\n'
-						<< (unsigned int)(unsigned char)(*begin++) << (unsigned int)(unsigned char)(*begin++)
-						<< (unsigned int)(unsigned char)(*begin++) << std::endl;
+					dataBuffer.packetNumber =
+						(iter[3] & 0x0F) << 16 |
+						(iter[4] & 0x0F) << 8 |
+						iter[5] & 0x0F;
+
+					readBuffer.Cut( iter + 6 );
 				}
 			}
+			// if need to read the values
+			else if (readBuffer.Offset() < readBuffer.MaxSize() - 4)
+			{
+				int* dataIter = dataBuffer.data;
+				while (readBuffer.Size() >= 3)
+				{
+					const char* iter = readBuffer.cbegin();
+
+					if (std::any_of( iter, iter + 3, []( const char& ch ) noexcept { return (ch & 0xF0) != 0x30; } ))
+						throw ReadError( "Invalid value." );
+
+					*dataIter++ =
+						(iter[0] & 0x0F) << 16 |
+						(iter[1] & 0x0F) << 8 |
+						iter[2] & 0x0F;
+					readBuffer.Cut( iter + 3 );
+				}
+				return dataIter - dataBuffer.data;
+			}
+			// if need to read the footer
 			else
 			{
-				if (end < buffer + sizeof( buffer ) - 1)
+				// try read the footer
+				if (readBuffer.Size() >= 3)
 				{
-					std::cout << "Read: " << end - begin << std::endl;
-					begin = end;
-				}
-				else
-				{
-					std::cout << "Read: " << buffer + sizeof( buffer ) - 1 - begin << std::endl;
-					begin = buffer + sizeof( buffer ) - 1;
-					isReadingMessage = false;
-					return 0;
+					if (readBuffer.cbegin()[2] == 0x0D)
+					{
+						readBuffer.Cut( readBuffer.cbegin() + 3 );
+						isReadingMessage = false;
+					}
+					else
+					{
+						throw ReadError( "Invalid last byte." );
+					}
 				}
 			}
 		}
-		isReadingMessage = true;
 		return 0;
 	}
 
 private:
-	char buffer[6178] {};
-	int data[2056] {};
+	ReadBuffer readBuffer{};
+	DataBuffer dataBuffer{};
 	ComPort& port;
-	char* begin = buffer;
-	char* end = buffer;
-	int direction {};
-	int packetNumber {};
 	bool isReadingMessage = false;
 };
