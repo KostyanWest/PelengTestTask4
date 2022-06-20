@@ -43,7 +43,7 @@ void SetupAnemorumbometer( ComPort& port )
 
 bool LookForMessageStart( ComPort& port, char*& current, char*& end )
 {
-	// if portBuffer is empty
+	// if the portBuffer is empty
 	if (current == end)
 	{
 		size_t bytesRead = port.Read( portBuffer, sizeof( portBuffer ) );
@@ -51,7 +51,7 @@ bool LookForMessageStart( ComPort& port, char*& current, char*& end )
 		end = portBuffer + bytesRead;
 	}
 
-	// look for message start character
+	// look for the message start character
 	std::cout << "Look: " << end - current << std::endl;
 	while (current != end)
 	{
@@ -69,7 +69,7 @@ bool LookForMessageStart( ComPort& port, char*& current, char*& end )
 
 bool ReceiveMessage( ComPort& port, char*& current, char*& end)
 {
-	// if portBuffer isn't full
+	// if the portBuffer isn't full
 	if (end != portBuffer + sizeof( portBuffer ))
 	{
 		size_t bytesRead = port.Read( end, portBuffer + sizeof( portBuffer ) - end );
@@ -80,10 +80,10 @@ bool ReceiveMessage( ComPort& port, char*& current, char*& end)
 	{
 		if (current == portBuffer)
 		{
-			// try read header
+			// try read the header
 			if (end - portBuffer >= 6)
 			{
-				//read header
+				// read the header
 				std::cout << (unsigned int)(unsigned char)(*current++) << '\n'
 					<< (unsigned int)(unsigned char)(*current++) << (unsigned int)(unsigned char)(*current++) << '\n'
 					<< (unsigned int)(unsigned char)(*current++) << (unsigned int)(unsigned char)(*current++) << (unsigned int)(unsigned char)(*current++) << std::endl;
