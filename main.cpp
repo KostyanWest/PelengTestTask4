@@ -41,7 +41,7 @@ void ShowData( const AnemorumbometerReader::Data& data ) noexcept
 	if (isVisable[plotIndex])
 	{
 		cv::Mat image( frameHeight, frameWidth, CV_8UC3, frame );
-		cv::rectangle( image, cv::Rect( 0, data.dataOffset, data.dataSize, frameHeight ), CV_RGB( 0, 0, 0 ), CV_FILLED );
+		cv::rectangle( image, cv::Rect( data.dataOffset, 0, data.dataSize, frameHeight ), CV_RGB( 0, 0, 0 ), CV_FILLED );
 		for (int i = 0; i < 4; i++)
 		{
 			if (isVisable[i])
@@ -72,7 +72,35 @@ void ShowData( const AnemorumbometerReader::Data& data ) noexcept
 				cv::polylines( image, &subPlot, &count, 1, false, color, 1 );
 			}
 		}
+		//cv::Mat newFrame( frameWidth / 2, frameHeight / 2, CV_8UC3 );
+		//cv::resize( image, newFrame, newFrame.size(), 0.0, 0.0, cv::INTER_CUBIC );
 		cv::imshow( "Plot", image );
+	}
+}
+
+
+void TestSin()
+{
+	cv::namedWindow( "Plot", cv::WINDOW_NORMAL );
+	cv::resizeWindow( "Plot", frameWidth / 2, frameHeight / 2 );
+	int off = 0;
+
+	// wait ESC key
+	while (cv::waitKey( 20 ) != 27)
+	{
+		int val = 0x7FF + std::sin( off / 20.f ) * 0x7FE;
+		AnemorumbometerReader::Data data{
+			AnemorumbometerReader::Data::Direction::_1_3,
+			0,
+			&val,
+			off,
+			1
+		};
+		ShowData( data );
+		if (off == 2055)
+			off = 0;
+		else
+			off++;
 	}
 }
 
@@ -87,50 +115,39 @@ int main()
 
 	do
 	{
-		std::cout << "Select port number:" << std::endl;
+		std::cout << "Select port number (0 to exit):" << std::endl;
 		portNumber = 0;
 		std::cin >> portNumber;
 		try
 		{
-			//ComPort port( portNumber );
+			ComPort port( portNumber );
 			std::cout << std::hex << "Port opened" << std::endl;
 
-			//AnemorumbometerReader reader( port );
-			//reader.Setup();
+			AnemorumbometerReader reader( port );
+			reader.Setup();
 			std::cout << "Anemorumbometer setuped" << std::endl;
 
 			cv::namedWindow( "Plot", cv::WINDOW_NORMAL );
-			cv::resizeWindow( "Plot", frameWidth / 2, frameHeight / 2 );
-			int off = 0;
+			cv::resizeWindow( "Plot", frameWidth, frameHeight );
 
 			// wait ESC key
 			while (cv::waitKey( 20 ) != 27)
 			{
 				try
 				{
-					int val = 0x7FF + std::sin( off / 20.f ) * 0x7FE;
-					//AnemorumbometerReader::Data data = reader.ReadSomeData();
-					AnemorumbometerReader::Data data {
-						AnemorumbometerReader::Data::Direction::_1_3,
-						0,
-						&val,
-						off,
-						1
-					};
+					AnemorumbometerReader::Data data = reader.ReadSomeData();
 					ShowData( data );
-					if (off == 2055)
-						off = 0;
-					else
-						off++;
 				}
 				catch (const AnemorumbometerReader::ReadError& ex)
 				{
 					std::cerr << "Packet skipped because of error: " << ex.what()
+						<< "\nbyte: " << (unsigned int)(unsigned char)ex.byte
 						<< "\nat offset: " << ex.offset << std::endl;
-					//reader.Setup();
+					reader.Setup();
 					std::cout << "Anemorumbometer resetuped" << std::endl;
 				}
 			}
+			cv::destroyWindow( "Plot" );
 		}
 		catch (const std::exception& ex)
 		{

@@ -29,12 +29,12 @@ private:
 		size_t Offset() const noexcept { return cbegin() - std::cbegin( buffer ); }
 
 		bool IsEmpty() const noexcept { return cbegin() == cend(); }
-		bool IsFull() const noexcept { return cend() == std::end( buffer ); }
+		bool IsFull() const noexcept { return cend() == std::cend( buffer ); }
 
 		void Clear() noexcept { beginPtr = endPtr = std::begin( buffer ); }
 		bool Cut( const T* beginIter ) noexcept
 		{
-			if (beginIter >= begin() && beginIter <= end())
+			if (beginIter >= cbegin() && beginIter <= cend())
 			{
 				beginPtr = const_cast<T*>(beginIter);
 				return true;
@@ -47,15 +47,18 @@ private:
 
 		void AlignBegin() noexcept
 		{
-			std::copy( cbegin(), cend(), std::begin( buffer ) );
-			endPtr = std::begin( buffer ) + Size();
-			beginPtr = std::begin( buffer );
+			if (Offset() > 0)
+			{
+				std::copy( cbegin(), cend(), std::begin( buffer ) );
+				endPtr = std::begin( buffer ) + Size();
+				beginPtr = std::begin( buffer );
+			}
 		}
 
 		template <typename WriteFunc>
 		size_t Append( WriteFunc writeFunc )
 		{
-			size_t bytesRead = writeFunc( begin(), std::cend( buffer ) - cend() );
+			size_t bytesRead = writeFunc( end(), std::cend( buffer ) - cend() );
 			endPtr += bytesRead;
 			return bytesRead;
 		}
@@ -64,61 +67,6 @@ private:
 		T buffer[N] {};
 		T* beginPtr = std::begin( buffer );
 		T* endPtr = std::begin( buffer );
-	};
-
-	class ReadBuffer
-	{
-	public:
-		ReadBuffer() = default;
-		ReadBuffer( const ReadBuffer& ) = delete;
-		ReadBuffer& operator= ( const ReadBuffer& ) = delete;
-
-		char* begin() noexcept { return beginPtr; }
-		char* end() noexcept { return endPtr; }
-
-		const char* cbegin() const noexcept { return beginPtr; }
-		const char* cend() const noexcept { return endPtr; }
-
-		size_t Size() const noexcept { return cend() - cbegin(); }
-		constexpr size_t MaxSize() const noexcept { return std::cend( buffer ) - std::cbegin( buffer ); }
-		size_t Offset() const noexcept { return cbegin() - std::cbegin( buffer ); }
-
-		bool IsEmpty() const noexcept { return cbegin() == cend(); }
-		bool IsFull() const noexcept { return cend() == std::end( buffer ); }
-
-		void Clear() noexcept { beginPtr = endPtr = std::begin( buffer ); }
-		bool Cut( const char* beginIter ) noexcept
-		{
-			if (beginIter >= begin() && beginIter <= end())
-			{
-				beginPtr = const_cast<char*>(beginIter);
-				return true;
-			}
-			else
-			{
-				return false;
-			}
-		}
-
-		void AlignBegin() noexcept
-		{
-			std::memmove( std::begin( buffer ), begin(), Size() );
-			endPtr = std::begin( buffer ) + Size();
-			beginPtr = std::begin( buffer );
-		}
-
-		template <typename WriteFunc>
-		size_t Append( WriteFunc writeFunc )
-		{
-			size_t bytesRead = writeFunc( begin(), std::cend( buffer ) - cend() );
-			endPtr += bytesRead;
-			return bytesRead;
-		}
-
-	private:
-		char buffer[6178] {};
-		char* beginPtr = std::begin( buffer );
-		char* endPtr = std::begin( buffer );
 	};
 
 
@@ -184,7 +132,6 @@ public:
 			{
 				size_t bytesWritten = port.Write( current, response + sizeof( response ) - current );
 				current += bytesWritten;
-				std::cout << "Write: " << bytesWritten << std::endl;
 			}
 		}
 
@@ -197,7 +144,7 @@ public:
 	{
 		if (!isReadingMessage)
 			LookForMessageStart();
-		else
+		if (isReadingMessage)
 			ReceiveMessage();
 
 		if (dataBuffer.Size() > 0)
@@ -218,12 +165,12 @@ private:
 		if (readBuffer.IsEmpty())
 		{
 			readBuffer.Clear();
-			std::cout << "Look: " << readBuffer.Append( [this] ( char* buf, size_t size ) { return port.Read( buf, size ); } ) << std::endl;
-			/*for (const char ch : readBuffer)
-			{
-				std::cout << (unsigned int)(unsigned char)ch << ' ';
-			}
-			std::cout << std::endl;*/
+			readBuffer.Append(
+				[this] ( char* buf, size_t size )
+				{
+					return port.Read( buf, size );
+				}
+			);
 		}
 
 		const char* iter = std::find( readBuffer.cbegin(), readBuffer.cend(), 0x20 );
@@ -232,6 +179,7 @@ private:
 			readBuffer.Cut( iter + 1 );
 			readBuffer.AlignBegin();
 			isReadingMessage = true;
+			dataBuffer.Clear();
 		}
 		else
 		{
