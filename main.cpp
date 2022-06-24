@@ -43,6 +43,7 @@ int main()
 	do
 	{
 		std::cout << "Select port number:" << std::endl;
+		portNumber = 0;
 		std::cin >> portNumber;
 		try
 		{
@@ -71,7 +72,7 @@ int main()
 		}
 		catch (const std::exception& ex)
 		{
-			std::cerr << "Fatal error: " << ex.what() << std::endl;
+			std::cerr << "Error: " << ex.what() << std::endl;
 		}
 	}
 	while (portNumber > 0);
