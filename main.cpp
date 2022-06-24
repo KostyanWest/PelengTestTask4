@@ -142,6 +142,26 @@ void TestSin()
 }
 
 
+void TestRead()
+{
+	char name[] = "rogatka 2022-06-24 12.43.17.bin";
+	std::ifstream f( name, std::ios_base::binary | std::ios_base::in );
+	for (int i = 0; i < 2; i++)
+	{
+		int iii;
+		f >> iii;
+		std::cout << iii << ' ';
+	}
+	for (int i = 0; i < 1000; i++)
+	{
+		short sss;
+		f >> sss;
+		std::cout << sss << ' ';
+	}
+	std::cout << std::endl;
+}
+
+
 } // namespace /*<unnamed>*/
 
 
@@ -149,6 +169,10 @@ int main()
 {
 	int portNumber = 0;
 	InitPlots();
+
+	std::cout << std::hex;
+	TestRead();
+	return 0;
 
 	do
 	{

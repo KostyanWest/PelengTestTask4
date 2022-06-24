@@ -4,6 +4,9 @@
 
 #include <algorithm>
 #include <iostream>
+#include <fstream>
+#include <iomanip>
+#include <sstream>
 
 
 
@@ -180,6 +183,17 @@ private:
 			readBuffer.AlignBegin();
 			isReadingMessage = true;
 			dataBuffer.Clear();
+			if (recordsRemain <= 0 && direction == Data::Direction::_1_3 && !file.is_open())
+			{
+				std::cout << "FILE" << std::endl;
+				std::time_t time = std::time( nullptr );
+				std::stringstream ss {};
+#pragma warning(suppress : 4996) // std::gmtime unsafe warning suppress
+				ss << "rogatka " << std::put_time( std::gmtime( &time ), "%Y-%m-%d %H.%M.%S" ) << ".bin";
+				std::cout << ss.str() << std::endl;
+				file.open( ss.str(), std::ios_base::binary | std::ios_base::out );
+				recordsRemain = 10;
+			}
 		}
 		else
 		{
@@ -247,6 +261,9 @@ private:
 		}
 
 		readBuffer.Cut( iter + 6 );
+
+		if (file.is_open())
+			file << static_cast<int>(direction) << packetNumber;
 	}
 
 	void ExtractValues() noexcept
@@ -274,6 +291,14 @@ private:
 				return dataBufIter - dataBufBegin;
 			}
 		);
+
+		if (file.is_open())
+		{
+			for (const int value : dataBuffer)
+			{
+				file << static_cast<short>(value);
+			}
+		}
 	}
 
 	void ExtractFooter() noexcept
@@ -284,6 +309,11 @@ private:
 				std::cerr << "Bad last byte: " << (unsigned int)(unsigned char)readBuffer.cbegin()[2] << std::endl;
 
 			readBuffer.Cut( readBuffer.cbegin() + 3 );
+
+			if (file.is_open() && direction == Data::Direction::_4_2 && --recordsRemain <= 0)
+			{
+				file.close();
+			}
 		}
 	}
 
@@ -292,6 +322,10 @@ private:
 	Buffer<int, 2056> dataBuffer {};
 	Data::Direction direction {};
 	int packetNumber {};
+
 	ComPort& port;
 	bool isReadingMessage = false;
+
+	std::ofstream file {};
+	int recordsRemain = 0;
 };
