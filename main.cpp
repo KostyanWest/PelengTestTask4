@@ -14,21 +14,67 @@ namespace
 constexpr size_t frameWidth = 2056;
 constexpr size_t frameHeight = 1024;
 constexpr size_t maxPlotsCount = 16;
-int plot[frameWidth];
-char frame[frameWidth * frameHeight];
-//char portBuffer[6178];
 
-//void REad( int direction, int packetNumber, const int* begin, size_t count )
-//{
-//	cv::Mat image( frameHeight, frameWidth, CV_8UC1 );
-//	cv::rectangle( image, cv::Rect( 0, 0, count, frameHeight ), cv::Scalar( 0.5 ), CV_FILLED );
-//	std::cout << "\nDir: " << direction << "\nNum: " << packetNumber << "\nSiz: " << end - begin << '\n';
-//	while (begin != end)
-//	{
-//		std::cout << *begin++ << ' ';
-//	}
-//	std::cout << std::endl;
-//}
+bool isVisable[4] = { true, true, true, true };
+cv::Point plots[4][frameWidth];
+unsigned char frame[frameWidth * frameHeight * 3];
+
+constexpr void InitPlots() noexcept
+{
+	for (int i = 0; i < 4; i++)
+	{
+		for (int j = 0; j < frameWidth; j++)
+		{
+			plots[i][j].x = j;
+		}
+	}
+}
+
+void ShowData( const AnemorumbometerReader::Data& data ) noexcept
+{
+	const int plotIndex = static_cast<int>(data.direction) - 1;
+	for (int i = 0; i < data.dataSize; i++)
+	{
+		plots[plotIndex][data.dataOffset + i].y = data.data[i] / 4;
+	}
+
+	if (isVisable[plotIndex])
+	{
+		cv::Mat image( frameHeight, frameWidth, CV_8UC3, frame );
+		cv::rectangle( image, cv::Rect( 0, data.dataOffset, data.dataSize, frameHeight ), CV_RGB( 0, 0, 0 ), CV_FILLED );
+		for (int i = 0; i < 4; i++)
+		{
+			if (isVisable[i])
+			{
+				cv::Scalar color;
+				switch (i)
+				{
+				case 0:
+					color = CV_RGB( 255, 0, 0 );
+					break;
+				case 1:
+					color = CV_RGB( 0, 255, 0 );
+					break;
+				case 2:
+					color = CV_RGB( 0, 0, 255 );
+					break;
+				default:
+					color = CV_RGB( 255, 255, 255 );
+					break;
+				}
+				cv::Point* subPlot = plots[i] + data.dataOffset - 1;
+				int count = data.dataSize + 1;
+				if (data.dataOffset == 0)
+				{
+					subPlot++;
+					count--;
+				}
+				cv::polylines( image, &subPlot, &count, 1, false, color, 1 );
+			}
+		}
+		cv::imshow( "Plot", image );
+	}
+}
 
 
 } // namespace
@@ -37,9 +83,8 @@ char frame[frameWidth * frameHeight];
 int main()
 {
 	int portNumber = 0;
-	cv::Mat image = cv::Mat::zeros( cv::Size( 500, 500 ), CV_8UC1 );
-	cv::namedWindow( "Plot", cv::WINDOW_NORMAL );
-	cv::imshow( "Plot", image );
+	InitPlots();
+
 	do
 	{
 		std::cout << "Select port number:" << std::endl;
@@ -47,25 +92,42 @@ int main()
 		std::cin >> portNumber;
 		try
 		{
-			ComPort port( portNumber );
+			//ComPort port( portNumber );
 			std::cout << std::hex << "Port opened" << std::endl;
 
-			AnemorumbometerReader reader( port );
-			reader.Setup();
+			//AnemorumbometerReader reader( port );
+			//reader.Setup();
 			std::cout << "Anemorumbometer setuped" << std::endl;
+
+			cv::namedWindow( "Plot", cv::WINDOW_NORMAL );
+			cv::resizeWindow( "Plot", frameWidth / 2, frameHeight / 2 );
+			int off = 0;
 
 			// wait ESC key
 			while (cv::waitKey( 20 ) != 27)
 			{
 				try
 				{
-					AnemorumbometerReader::Data data = reader.ReadSomeData();
+					int val = 0x7FF + std::sin( off / 20.f ) * 0x7FE;
+					//AnemorumbometerReader::Data data = reader.ReadSomeData();
+					AnemorumbometerReader::Data data {
+						AnemorumbometerReader::Data::Direction::_1_3,
+						0,
+						&val,
+						off,
+						1
+					};
+					ShowData( data );
+					if (off == 2055)
+						off = 0;
+					else
+						off++;
 				}
 				catch (const AnemorumbometerReader::ReadError& ex)
 				{
 					std::cerr << "Packet skipped because of error: " << ex.what()
 						<< "\nat offset: " << ex.offset << std::endl;
-					reader.Setup();
+					//reader.Setup();
 					std::cout << "Anemorumbometer resetuped" << std::endl;
 				}
 			}
@@ -76,18 +138,4 @@ int main()
 		}
 	}
 	while (portNumber > 0);
-
-	/*int value = 0;
-	cv::Mat image = cv::Mat::zeros( cv::Size( 500, 500 ), CV_8UC1 );
-	cv::namedWindow( "Plot", cv::WINDOW_NORMAL );
-	cv::resizeWindow( "Plot", 1028, 512 );
-
-	cv::createTrackbar( "Frame", "Plot", &value, 15, barclb, nullptr );
-	cv::imshow( "Plot", image );
-	std::cout << cv::waitKeyEx( 0 ) << std::endl;
-	std::cout << cv::waitKeyEx( 1 ) << std::endl;
-	std::cout << "Hello World!\n";
-	cv::waitKey( 0 );
-	cv::setTrackbarPos( "Frame", "test", 1 );
-	cv::waitKey( 0 );*/
 }

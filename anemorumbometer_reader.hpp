@@ -1,5 +1,5 @@
 #pragma once
-//#define _Off _Count
+
 #include "com_port_reader.hpp"
 
 #include <algorithm>
