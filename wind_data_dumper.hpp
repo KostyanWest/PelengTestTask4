@@ -38,10 +38,10 @@ public:
 		if (file.is_open())
 		{
 			if (data.offset == 0)
-				file << data.packetNumber << static_cast<int>(data.direction);
+				file.write( reinterpret_cast<const char*>(&data.packetNumber), sizeof( data.packetNumber ) )
+					.write( reinterpret_cast<const char*>(&data.direction), sizeof( data.direction ) );
 
-			for (int i = 0; i < data.size; i++)
-				file << data.begin[i];
+			file.write( reinterpret_cast<const char*>(data.begin), data.size * sizeof( data.begin[0] ) );
 
 			if (recordsRemain-- == 0)
 				file.close();

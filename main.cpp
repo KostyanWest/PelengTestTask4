@@ -117,34 +117,6 @@ void KeyPressed( int keyCode ) noexcept
 }
 
 
-void TestSin()
-{
-	cv::namedWindow( winName, cv::WINDOW_NORMAL );
-	cv::resizeWindow( winName, frameWidth / 2, frameHeight / 2 );
-	
-	int off = 0;
-
-	// wait ESC key
-	int keyCode;
-	while ((keyCode = cv::waitKey( 20 )) != 27)
-	{
-		int val = 0x7FF + std::sin( off / 20.f ) * 0x7FE;
-		Task4::WindData data{
-			Task4::WindData::Direction::_1_3,
-			0,
-			&val,
-			off,
-			1
-		};
-		UpdateData( data );
-		if (off == 2055)
-			off = 0;
-		else
-			off++;
-	}
-}
-
-
 void TestRead()
 {
 	char name[] = "rogatka 2022-06-24 12.43.17.bin";
@@ -165,6 +137,60 @@ void TestRead()
 }
 
 
+class FakeAnem
+{
+public:
+	void Setup() const noexcept {}
+
+	Task4::WindData ReadSomeData() noexcept
+	{
+		if (dataPart == 0)
+		{
+			x = 0;
+			k = (float)std::rand() / RAND_MAX * 40.0f + 10.0f;
+		}
+
+		for (int& value : data)
+		{
+			value = static_cast<int>(0x7FF + std::sin( x++ / k ) * 0x7FE);
+		}
+
+		Task4::WindData result{
+			direction,
+			packetNumber,
+			data,
+			dataPart * 257,
+			257
+		};
+
+		if (++dataPart == 8)
+		{
+			dataPart = 0;
+			if (direction == Task4::WindData::Direction::_4_2)
+			{
+				direction = Task4::WindData::Direction::_1_3;
+				packetNumber++;
+			}
+			else
+			{
+				direction = static_cast<Task4::WindData::Direction>(static_cast<int>(direction) + 1);
+			}
+		}
+
+		return result;
+	}
+
+private:
+	int data[257];
+	int packetNumber = 0;
+	Task4::WindData::Direction direction = Task4::WindData::Direction::_1_3;
+
+	size_t dataPart = 0;
+	int x = 0;
+	float k = 20.f;
+};
+
+
 } // namespace /*<unnamed>*/
 
 
@@ -173,9 +199,9 @@ int main()
 	int portNumber = 0;
 	InitPlots();
 
-	std::cout << std::hex;
-	TestRead();
-	return 0;
+	//std::cout << std::hex;
+	//TestRead();
+	//return 0;
 
 	do
 	{
@@ -184,15 +210,16 @@ int main()
 		std::cin >> portNumber;
 		try
 		{
-			ComPort port( portNumber );
+			//ComPort port( portNumber );
 			std::cout << std::hex << "Port opened" << std::endl;
 
-			Task4::AnemorumbometerReader reader( port );
+			//Task4::AnemorumbometerReader reader( port );
+			FakeAnem reader{};
 			reader.Setup();
 			std::cout << "Anemorumbometer setuped" << std::endl;
 
 			cv::namedWindow( winName, cv::WINDOW_NORMAL );
-			cv::resizeWindow( winName, frameWidth, frameHeight );
+			cv::resizeWindow( winName, frameWidth / 2, frameHeight / 2 );
 
 			Task4::WindDataDumper dumper{};
 
