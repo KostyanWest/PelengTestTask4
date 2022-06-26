@@ -146,12 +146,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="anemorumbometer_reader.cpp" />
     <ClCompile Include="com_port_reader.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="anemorumbometer_reader.hpp" />
     <ClInclude Include="com_port_reader.hpp" />
+    <ClInclude Include="wind_data_dumper.hpp" />
+    <ClInclude Include="structs.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

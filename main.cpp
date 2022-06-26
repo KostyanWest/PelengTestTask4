@@ -1,4 +1,5 @@
 ﻿#include "anemorumbometer_reader.hpp"
+#include "wind_data_dumper.hpp"
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -72,17 +73,17 @@ void DrawRange( int start, int length ) noexcept
 }
 
 
-void UpdateData( const AnemorumbometerReader::Data& data ) noexcept
+void UpdateData( const Task4::WindData& data ) noexcept
 {
 	const int plotIndex = static_cast<int>(data.direction) - 1;
-	for (int i = 0; i < data.dataSize; i++)
+	for (int i = 0; i < data.size; i++)
 	{
-		plots[plotIndex][data.dataOffset + i].y = data.data[i] / 4;
+		plots[plotIndex][data.offset + i].y = data.begin[i] / 4;
 	}
 
 	if (isVisable[plotIndex])
 	{
-		DrawRange( data.dataOffset, data.dataSize );
+		DrawRange( data.offset, data.size );
 	}
 }
 
@@ -120,14 +121,16 @@ void TestSin()
 {
 	cv::namedWindow( winName, cv::WINDOW_NORMAL );
 	cv::resizeWindow( winName, frameWidth / 2, frameHeight / 2 );
+	
 	int off = 0;
 
 	// wait ESC key
-	while (cv::waitKey( 20 ) != 27)
+	int keyCode;
+	while ((keyCode = cv::waitKey( 20 )) != 27)
 	{
 		int val = 0x7FF + std::sin( off / 20.f ) * 0x7FE;
-		AnemorumbometerReader::Data data{
-			AnemorumbometerReader::Data::Direction::_1_3,
+		Task4::WindData data{
+			Task4::WindData::Direction::_1_3,
 			0,
 			&val,
 			off,
@@ -184,12 +187,14 @@ int main()
 			ComPort port( portNumber );
 			std::cout << std::hex << "Port opened" << std::endl;
 
-			AnemorumbometerReader reader( port );
+			Task4::AnemorumbometerReader reader( port );
 			reader.Setup();
 			std::cout << "Anemorumbometer setuped" << std::endl;
 
 			cv::namedWindow( winName, cv::WINDOW_NORMAL );
 			cv::resizeWindow( winName, frameWidth, frameHeight );
+
+			Task4::WindDataDumper dumper{};
 
 			// wait ESC key
 			int keyCode;
@@ -198,10 +203,11 @@ int main()
 				KeyPressed( keyCode );
 				try
 				{
-					AnemorumbometerReader::Data data = reader.ReadSomeData();
+					Task4::WindData data = reader.ReadSomeData();
 					UpdateData( data );
+					dumper.Dump( data );
 				}
-				catch (const AnemorumbometerReader::ReadError& ex)
+				catch (const Task4::AnemorumbometerReader::ReadError& ex)
 				{
 					std::cerr << "Packet skipped because of error: " << ex.what()
 						<< "\nbyte: " << (unsigned int)(unsigned char)ex.byte

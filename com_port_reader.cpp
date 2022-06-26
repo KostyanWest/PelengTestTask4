@@ -59,7 +59,7 @@ char ComPort::ReadByte()
 size_t ComPort::Read( char* buffer, size_t bufferSize )
 {
 	DWORD bytesRead = 0;
-	if (::ReadFile( nativePortHandle, buffer, bufferSize, &bytesRead, NULL ))
+	if (::ReadFile( nativePortHandle, buffer, (DWORD)bufferSize, &bytesRead, NULL ))
 	{
 		return bytesRead;
 	}
@@ -72,7 +72,7 @@ size_t ComPort::Read( char* buffer, size_t bufferSize )
 size_t ComPort::Write( char* buffer, size_t bufferSize )
 {
 	DWORD bytesWritten = 0;
-	if (::WriteFile( nativePortHandle, buffer, bufferSize, &bytesWritten, NULL ))
+	if (::WriteFile( nativePortHandle, buffer, (DWORD)bufferSize, &bytesWritten, NULL ))
 	{
 		return bytesWritten;
 	}
