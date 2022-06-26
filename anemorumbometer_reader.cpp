@@ -156,14 +156,14 @@ void Task4::AnemorumbometerReader::ExtractHeader()
 void Task4::AnemorumbometerReader::ExtractValues() noexcept
 {
 	dataBuffer.Append(
-		[this]( int* const dataBufBegin, const size_t dataBufLimit ) noexcept
+		[this]( short* const dataBufBegin, const size_t dataBufLimit ) noexcept
 		{
 			const size_t limit = std::min( readBuffer.Size() / 3, dataBufLimit );
-			int* dataBufIter = dataBufBegin;
+			short* dataBufIter = dataBufBegin;
 			char* readBufIter = readBuffer.begin();
 			for (int i = 0; i < limit; i++)
 			{
-				int value = 0;
+				short value = 0;
 				for (int j = 0; j < 3; j++)
 				{
 					char byte = *readBufIter++;

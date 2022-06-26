@@ -15,7 +15,7 @@ public:
 	class ReadError : public std::exception
 	{
 	public:
-		ReadError( WindData::Direction direction, int packetNumber, int offset, char byte ) noexcept
+		ReadError( WindData::Direction direction, short packetNumber, int offset, char byte ) noexcept
 			: direction( direction ), packetNumber( packetNumber ), offset( offset ), byte( byte )
 		{
 		}
@@ -26,7 +26,7 @@ public:
 		}
 
 		const WindData::Direction direction;
-		const int packetNumber;
+		const short packetNumber;
 		const int offset;
 		const char byte;
 	};
@@ -50,9 +50,9 @@ private:
 
 private:
 	Buffer<char, 6178> readBuffer{};
-	Buffer<int, 2056> dataBuffer{};
+	Buffer<short, 2056> dataBuffer{};
 	WindData::Direction direction{};
-	int packetNumber{};
+	short packetNumber{};
 
 	ComPort& port;
 	bool isReadingMessage = false;

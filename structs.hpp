@@ -70,7 +70,7 @@ private:
 
 struct WindData
 {
-	enum class Direction : int
+	enum class Direction : short
 	{
 		Invalid,
 		_1_3,
@@ -80,8 +80,8 @@ struct WindData
 	};
 
 	Direction direction;
-	int packetNumber;
-	const int* begin;
+	short packetNumber;
+	const short* begin;
 	size_t offset;
 	size_t size;
 };

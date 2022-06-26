@@ -75,7 +75,7 @@ void DrawRange( int start, int length ) noexcept
 
 void UpdateData( const Task4::WindData& data ) noexcept
 {
-	const int plotIndex = static_cast<int>(data.direction) - 1;
+	const int plotIndex = static_cast<short>(data.direction) - 1;
 	for (int i = 0; i < data.size; i++)
 	{
 		plots[plotIndex][data.offset + i].y = data.begin[i] / 4;
@@ -147,12 +147,12 @@ public:
 		if (dataPart == 0)
 		{
 			x = 0;
-			k = (float)std::rand() / RAND_MAX * 40.0f + 10.0f;
+			k = static_cast<float>(std::rand()) / RAND_MAX * 40.0f + 10.0f;
 		}
 
-		for (int& value : data)
+		for (short& value : data)
 		{
-			value = static_cast<int>(0x7FF + std::sin( x++ / k ) * 0x7FE);
+			value = static_cast<short>(0x7FF + std::sin( x++ / k ) * 0x7FE);
 		}
 
 		Task4::WindData result{
@@ -173,7 +173,7 @@ public:
 			}
 			else
 			{
-				direction = static_cast<Task4::WindData::Direction>(static_cast<int>(direction) + 1);
+				direction = static_cast<Task4::WindData::Direction>(static_cast<short>(direction) + 1);
 			}
 		}
 
@@ -181,8 +181,8 @@ public:
 	}
 
 private:
-	int data[257];
-	int packetNumber = 0;
+	short data[257];
+	short packetNumber = 0;
 	Task4::WindData::Direction direction = Task4::WindData::Direction::_1_3;
 
 	size_t dataPart = 0;
