@@ -153,6 +153,8 @@
   <ItemGroup>
     <ClInclude Include="anemorumbometer_reader.hpp" />
     <ClInclude Include="com_port_reader.hpp" />
+    <ClInclude Include="plots.hpp" />
+    <ClInclude Include="plot_window.hpp" />
     <ClInclude Include="wind_data_dumper.hpp" />
     <ClInclude Include="structs.hpp" />
   </ItemGroup>

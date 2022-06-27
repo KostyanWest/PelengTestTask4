@@ -1,5 +1,6 @@
 ﻿#include "anemorumbometer_reader.hpp"
 #include "wind_data_dumper.hpp"
+#include "plot_window.hpp"
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -12,7 +13,7 @@ namespace /*<unnamed>*/
 {
 
 
-constexpr const char* winName = "Plot (ESC to close)";
+/*constexpr const char* winName = "Plot (ESC to close)";
 constexpr size_t frameWidth = 2056;
 constexpr size_t frameHeight = 1024;
 constexpr size_t maxPlotsCount = 16;
@@ -67,8 +68,8 @@ void DrawRange( int start, int length ) noexcept
 			cv::polylines( image, &subPlot, &count, 1, false, color, 1 );
 		}
 	}
-	//cv::Mat newFrame( frameWidth / 2, frameHeight / 2, CV_8UC3 );
-	//cv::resize( image, newFrame, newFrame.size(), 0.0, 0.0, cv::INTER_CUBIC );
+	cv::Mat newFrame( frameWidth / 2, frameHeight / 2, CV_8UC3 );
+	cv::resize( image, newFrame, newFrame.size(), 0.0, 0.0, cv::INTER_CUBIC );
 	cv::imshow( winName, image );
 }
 
@@ -134,7 +135,7 @@ void TestRead()
 		std::cout << sss << ' ';
 	}
 	std::cout << std::endl;
-}
+}*/
 
 
 class FakeAnem
@@ -197,7 +198,7 @@ private:
 int main()
 {
 	int portNumber = 0;
-	InitPlots();
+	//InitPlots();
 
 	//std::cout << std::hex;
 	//TestRead();
@@ -218,21 +219,27 @@ int main()
 			reader.Setup();
 			std::cout << "Anemorumbometer setuped" << std::endl;
 
-			cv::namedWindow( winName, cv::WINDOW_NORMAL );
-			cv::resizeWindow( winName, frameWidth / 2, frameHeight / 2 );
+			static Task4::FrameBuffer<2056, 1024, 4> plot{};
+
+			Task4::FrameWindow window( "Lol" );
+
+			//cv::namedWindow( winName, cv::WINDOW_NORMAL );
+			//cv::resizeWindow( winName, frameWidth / 2, frameHeight / 2 );
 
 			Task4::WindDataDumper dumper{};
 
 			// wait ESC key
 			int keyCode;
-			while ((keyCode = cv::waitKey( 20 )) != 27)
+			while ((keyCode = window.PressKey( 20 )) != 27)
 			{
-				KeyPressed( keyCode );
+				//KeyPressed( keyCode );
 				try
 				{
 					Task4::WindData data = reader.ReadSomeData();
-					UpdateData( data );
-					dumper.Dump( data );
+					plot.FillWithData( data );
+					//UpdateData( data );
+					window.Draw( plot );
+					//dumper.Dump( data );
 				}
 				catch (const Task4::AnemorumbometerReader::ReadError& ex)
 				{
@@ -243,7 +250,7 @@ int main()
 					std::cout << "Anemorumbometer resetuped" << std::endl;
 				}
 			}
-			cv::destroyWindow( winName );
+			//cv::destroyWindow( winName );
 		}
 		catch (const std::exception& ex)
 		{
